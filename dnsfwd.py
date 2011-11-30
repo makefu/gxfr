@@ -2,8 +2,6 @@
 
 import socket, time
 
-# find current path and append to all files
-
 class DNSQuery:
   def __init__(self, data):
     self.data = data
@@ -45,44 +43,43 @@ def log(filename, action, desc):
   log_file.close()
 
 if __name__ == '__main__':
-  # sinkhole ip
-  ip = '127.0.0.1'
-  nameserver = '208.67.222.222'
-  block_files = ['/etc/squid/domainblacklist','/etc/squid/zeusblacklist']
-  blacklists = {}
+
+  ### set these vars ###
+  ip = '127.0.0.1'  # sinkhole ip
   request_log = '/etc/squid/log'
+  block_files = ['/etc/squid/domainblacklist','/etc/squid/zeusblacklist']
+  nameserver = '208.67.222.222'
+  ######################
+
+  print 'Forwarding requests to %s.' % (nameserver)
 
   # create list of blacklisted hosts in memory
+  blacklists = {}
   for filename in block_files:
     print 'Processing %s...' % (filename)
     file = open(filename, 'r')
     blacklists[filename] = file.read().split()
     file.close()
 
-  #import pdb; pdb.set_trace()
-
-  # open log file for logging
-
   udps = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
   udps.bind(('',53))
-  print 'Setting %s as external nameserver.' % (nameserver)
   print 'Server started.'
   
   try:
     while 1:
-      test = True
+      blocked = False
       reqdata, reqaddr = udps.recvfrom(1024)
       p = DNSQuery(reqdata)
       domain = p.domain[:-1]
       for blacklist in blacklists.keys():
+        if blocked: break
         for item in blacklists[blacklist]:
           if domain.find(item) != -1:
             udps.sendto(p.response(ip), reqaddr)
             log(request_log, 'DENY', '%s -> %s [%s]' % (reqaddr[0], domain, blacklist))
-            test = False
+            blocked = True
             break
-      #else:
-      if test:
+      if not blocked:
         try:
           udps.sendto(p.forward(nameserver), reqaddr)
           log(request_log, 'ALLOW', '%s -> %s' % (reqaddr[0], domain))
