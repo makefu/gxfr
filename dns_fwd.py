@@ -17,15 +17,13 @@ class DNSQuery:
         lon=ord(data[ini])
 
   def response(self, ip):
-    self.action = 'DENY'
     packet=''
-    if self.domain:
-      packet+=self.data[:2] + "\x81\x80"
-      packet+=self.data[4:6] + self.data[4:6] + '\x00\x00\x00\x00'   # Questions and Answers Counts
-      packet+=self.data[12:]                                         # Original Domain Name Question
-      packet+='\xc0\x0c'                                             # Pointer to domain name
-      packet+='\x00\x01\x00\x01\x00\x00\x00\x3c\x00\x04'             # Response type, ttl and resource data length -> 4 bytes
-      packet+=str.join('',map(lambda x: chr(int(x)), ip.split('.'))) # 4bytes of IP
+    packet+=self.data[:2] + "\x81\x80"
+    packet+=self.data[4:6] + self.data[4:6] + '\x00\x00\x00\x00'   # Questions and Answers Counts
+    packet+=self.data[12:]                                         # Original Domain Name Question
+    packet+='\xc0\x0c'                                             # Pointer to domain name
+    packet+='\x00\x01\x00\x01\x00\x00\x00\x3c\x00\x04'             # Response type, ttl and resource data length -> 4 bytes
+    packet+=str.join('',map(lambda x: chr(int(x)), ip.split('.'))) # 4bytes of IP
     return packet
 
   def forward(self, nameserver):
@@ -46,8 +44,8 @@ if __name__ == '__main__':
 
   ### set these vars ###
   ip = '127.0.0.1'  # sinkhole ip
-  request_log = '/etc/squid/log'
-  block_files = ['/etc/squid/domainblacklist','/etc/squid/zeusblacklist']
+  request_log = '/home/lanmaster/tools/dns_fwd/log'
+  block_files = ['/home/lanmaster/tools/dns_fwd/domainblacklist','/home/lanmaster/tools/dns_fwd/zeusblacklist']
   nameserver = '208.67.222.222'
   ######################
 
