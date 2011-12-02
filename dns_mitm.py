@@ -1,23 +1,24 @@
 #!/usr/bin/python -tt
 
 import time, logging
-#logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 from scapy.all import *
 
 def sniffmgmt(pkt):
-  blocked = False
-  domain = pkt[DNSQR].qname[:-1]
-  reqip = pkt[IP].src
-  for blacklist in blacklists.keys():
-    if blocked: break
-    for item in blacklists[blacklist]:
-      if domain.find(item) != -1:
-        block(pkt, ip)
-        log(request_log, 'DENY', '%s -> %s [%s]' % (reqip, domain, blacklist))
-        blocked = True
-        break
-  if not blocked:
-    log(request_log, 'ALLOW', '%s -> %s' % (reqip, domain))
+  if pkt.haslayer(DNSQR):
+    blocked = False
+    domain = pkt[DNSQR].qname[:-1]
+    reqip = pkt[IP].src
+    for blacklist in blacklists.keys():
+      if blocked: break
+      for item in blacklists[blacklist]:
+        if domain.find(item) != -1:
+          block(pkt, ip)
+          log(request_log, 'DENY', '%s -> %s [%s]' % (reqip, domain, blacklist))
+          blocked = True
+          break
+    if not blocked:
+      log(request_log, 'ALLOW', '%s -> %s' % (reqip, domain))
 
 def log(filename, action, desc):
   stamp = time.strftime('%m:%d:%y %H:%M:%S', time.localtime())
@@ -26,47 +27,29 @@ def log(filename, action, desc):
   log_file.close()
 
 def block(pkt, ip):
-  ethlen = len(Ether())
-  iplen = len(IP())
-  udplen = len(UDP())
-  m = pkt
-  t = str(m)
-  e = Ether(t[:ethlen])
-  i = IP(t[ethlen:])
-  u = UDP(t[ethlen + iplen:])
-  d = DNS(t[ethlen + iplen + udplen:])
-  dpkt = response(d, ip)
-  f = IP(src=i.dst, dst=i.src)/UDP(sport=u.dport, dport=u.sport)/dpkt
-  #import pdb; pdb.set_trace()
-  send(f, verbose=0)
-
-def response(dr, ip):
+  dr = pkt[DNS]
   timetolive = '\x00\x00\x07\x75'
   alen = '\x00\x04'
   d = DNS()
   d.id = dr.id
   d.qr = 1
   d.opcode = 16
-  d.aa = 0
-  d.tc = 0
-  d.rd = 0
   d.ra = 1
   d.z = 8
   d.rcode = 0
   d.qdcount = 1
   d.ancount = 1
-  d.nscount = 0
-  d.arcount = 0
   d.qd = str(dr.qd)
   d.an = str(dr.qd) + timetolive + alen + inet_aton(ip)
-  return d
+  f = IP(src=pkt[IP].dst, dst=pkt[IP].src)/UDP(sport=pkt.dport, dport=pkt.sport)/d
+  send(f, verbose=0)
 
 if __name__ == '__main__':
 
   ### set these vars ###
   ip = '127.0.0.1'  # sinkhole ip
-  request_log = '/root/log'
-  block_files = ['/root/blacklist']
+  request_log = 'log'
+  block_files = ['blacklist']
   nameserver = '208.67.222.222'
   ######################
 
