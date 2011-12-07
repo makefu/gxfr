@@ -1,5 +1,10 @@
 #!/usr/bin/python -tt
 
+
+# to do
+# try/catch in search function and around while statement so that errors dont break the script
+
+
 # linkedin.py queries Google for LinkedIn profiles associated to the given company
 # and confirms current employment by scraping and analyzing the profile page. It
 # then reports back the users full name, possible email prefix, and job title.
