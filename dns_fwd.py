@@ -1,6 +1,27 @@
 #!/usr/bin/python -tt
 
 import socket, time
+from threading import Thread
+from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+
+### set these vars ###
+ip = '192.168.1.3'  # ip of listening interface
+request_log = '/home/lanmaster/tools/dns_fwd/log'
+block_files = ['/home/lanmaster/tools/dns_fwd/domainblacklist','/home/lanmaster/tools/dns_fwd/zeusblacklist']
+nameserver = '208.67.222.222'
+######################
+
+class customHTTPServer(BaseHTTPRequestHandler):
+
+  def do_GET(self):
+    self.send_response(200)
+    self.send_header('Content-type', 'text/html')
+    self.end_headers()
+    self.wfile.write('<html><body>Blocked!</body></html>')
+    return
+
+  def log_message(self, format, *args):
+    return
 
 class DNSQuery:
   def __init__(self, data):
@@ -40,50 +61,58 @@ def log(filename, action, desc):
   log_file.write('%s (%s) %s\n' % (stamp, action, desc))
   log_file.close()
 
-if __name__ == '__main__':
-
-  ### set these vars ###
-  ip = '127.0.0.1'  # sinkhole ip
-  request_log = '/home/lanmaster/tools/dns_fwd/log'
-  block_files = ['/home/lanmaster/tools/dns_fwd/domainblacklist','/home/lanmaster/tools/dns_fwd/zeusblacklist']
-  nameserver = '208.67.222.222'
-  ######################
-
-  print 'Forwarding requests to %s.' % (nameserver)
-
-  # create list of blacklisted hosts in memory
-  blacklists = {}
-  for filename in block_files:
-    print 'Processing %s...' % (filename)
-    file = open(filename, 'r')
-    blacklists[filename] = file.read().split()
-    file.close()
-
-  udps = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-  udps.bind(('',53))
-  print 'Server started.'
-  
+def serve():
   try:
-    while 1:
-      blocked = False
-      reqdata, reqaddr = udps.recvfrom(1024)
-      p = DNSQuery(reqdata)
-      domain = p.domain[:-1]
-      for blacklist in blacklists.keys():
-        if blocked: break
-        for item in blacklists[blacklist]:
-          if domain.find(item) != -1:
-            udps.sendto(p.response(ip), reqaddr)
-            log(request_log, 'DENY', '%s -> %s [%s]' % (reqaddr[0], domain, blacklist))
-            blocked = True
-            break
-      if not blocked:
-        try:
-          udps.sendto(p.forward(nameserver), reqaddr)
-          log(request_log, 'ALLOW', '%s -> %s' % (reqaddr[0], domain))
-        except socket.timeout:
-          log(request_log, 'ERROR', '%s -> %s [fwd_socket_timeout]' % (reqaddr[0], domain))
-          continue
+    server = HTTPServer((ip,80), customHTTPServer)
+    server.serve_forever()
   except KeyboardInterrupt:
-    print 'Exiting...'
-    udps.close()
+    server.socket.close()
+
+## begin ##
+#import pdb; pdb.set_trace()
+
+print 'Starting web server on %s...' % (ip)
+t = Thread(target=serve, args=())
+t.setDaemon(True)
+t.start()
+
+print 'Forwarding requests to %s.' % (nameserver)
+
+# create list of blacklisted hosts in memory
+blacklists = {}
+for filename in block_files:
+  print 'Processing %s...' % (filename)
+  file = open(filename, 'r')
+  blacklists[filename] = file.read().split()
+  file.close()
+
+udps = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+udps.bind((ip,53))
+print 'Server started.'
+  
+try:
+  while 1:
+    blocked = False
+    reqdata, reqaddr = udps.recvfrom(1024)
+    p = DNSQuery(reqdata)
+    domain = p.domain[:-1]
+    for blacklist in blacklists.keys():
+      if blocked: break
+      for item in blacklists[blacklist]:
+        if domain.find(item) != -1:
+          udps.sendto(p.response(ip), reqaddr)
+          log(request_log, 'DENY', '%s -> %s [%s]' % (reqaddr[0], domain, blacklist))
+          blocked = True
+          break
+    if not blocked:
+      try:
+        udps.sendto(p.forward(nameserver), reqaddr)
+        log(request_log, 'ALLOW', '%s -> %s' % (reqaddr[0], domain))
+      except socket.timeout:
+        log(request_log, 'ERROR', '%s -> %s [fwd_socket_timeout]' % (reqaddr[0], domain))
+        continue
+except KeyboardInterrupt:
+  print 'Exiting...'
+  udps.close()
+
+## end ##
