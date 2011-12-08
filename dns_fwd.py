@@ -5,10 +5,10 @@ from threading import Thread
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 
 ### set these vars ###
-ip = '192.168.1.3'  # ip of listening interface
+ip = '192.168.1.3'             # ip of listening interface
 request_log = '/home/lanmaster/tools/dns_fwd/log'
 block_files = ['/home/lanmaster/tools/dns_fwd/domainblacklist','/home/lanmaster/tools/dns_fwd/zeusblacklist']
-nameserver = '208.67.222.222'
+nameserver = '208.67.222.222'  # ip of upstream dns server
 ######################
 
 class customHTTPServer(BaseHTTPRequestHandler):
