@@ -7,10 +7,12 @@ leetdict = { \
 'e':['3'], \
 'i':['1','!'], \
 'l':['7','1','!'], \
+'n':['^'], \
 'o':['0'], \
 'q':['0'], \
 's':['5','$'], \
 't':['7'], \
+'v':['\/'], \
 }
 
 # for JTR
@@ -67,7 +69,7 @@ if len(sys.argv) == 3 and sys.argv[1] == '-b':
   jtr(sys.argv[2])
   sys.exit()
 if len(sys.argv) == 2 and sys.argv[1] == '-v':
-  for key in leetdict.keys():
+  for key in sorted(leetdict.keys()):
     print '%s:%s' % (key,','.join(leetdict[key]))
   sys.exit()
 if '-h' in sys.argv:
