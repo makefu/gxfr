@@ -11,9 +11,8 @@ def help():
   
   -h, --help               this screen
   -v                       enable verbose mode
-  -t [num of seconds]      set number of seconds to wait between queries (default=5)
+  -t [num of seconds]      set number of seconds to wait between queries (default=15)
   -q [max num of queries]  restrict to maximum number of queries (default=0, indefinite)
-  --no-encrypt             disable SSL encrypted search engine queries
   --dns-lookup             enable dns lookups of all subdomains
   --proxy [file|ip:port|-] use a proxy or list of open proxies to send queries (@random w/list)
                              - [file] must consist of 1 or more ip:port pairs
@@ -22,9 +21,10 @@ def help():
   --timeout [seconds]      set socket timeout (default=system default)
   
   Examples: 
-  $ ./gxfr.py foxnews.com --no-encrypt --dns-lookup -t 5 -q 5 -v --proxy open_proxies.txt --timeout 10
-  $ ./gxfr.py foxnews.com --no-encrypt --dns-lookup -t 5 -q 5 -v --proxy 127.0.0.1:8080
-  $ curl http://rmccurdy.com/scripts/proxy/good.txt | ./gxfrpy foxnews.com -v --dns-lookup -t 5 -q 5 --proxy -
+  $ ./gxfr.py foxnews.com --dns-lookup -v
+  $ ./gxfr.py foxnews.com --dns-lookup --proxy open_proxies.txt --timeout 10
+  $ ./gxfr.py foxnews.com --dns-lookup -t 5 -q 5 -v --proxy 127.0.0.1:8080
+  $ curl http://rmccurdy.com/scripts/proxy/good.txt | ./gxfrpy foxnews.com -v --proxy -
   """
   sys.exit(2)
 
@@ -40,21 +40,23 @@ domain = sys.argv[1]
 sys.argv = sys.argv[2:]
 lookup = False
 encrypt = True
-proto = 'https'
-url = 'https://encrypted.google.com/search?q=inurl%3A' + domain + '+site%3A' + domain
+# new stuff
+base_url = 'https://www.google.com/m/search?'
+base_query = 'q=site%3A' + domain
+pattern = '>([\.\w-]*)\.%s.+?<' % (domain)
+# old stuff
+#base_url = 'https://www.google.com/search?'
+#base_query = 'q=inurl%3A' + domain + '+site%3A' + domain
+#pattern = '<cite>[\w://]*?([\w\.-]+?)<b>' + domain + '</b>'
 proxy = False
-user_agent = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
+user_agent = 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Trident/4.0; FDM; .NET CLR 2.0.50727; InfoPath.2; .NET CLR 1.1.4322)'
 verbose = False
-secs = 5
+secs = 15
 max_queries = 0 # infinite
 # process command line arguments
 if len(sys.argv) > 0:
   if '--dns-lookup' in sys.argv:
     lookup = True
-  if '--no-encrypt' in sys.argv:
-    encrypt = False
-    proto = 'http'
-    url = 'http://www.google.com/search?q=inurl%3A' + domain + '+site%3A' + domain
   if '--proxy' in sys.argv:
     proxy = True
     filename = sys.argv[sys.argv.index('--proxy') + 1]
@@ -78,9 +80,9 @@ if len(sys.argv) > 0:
     secs = int(sys.argv[sys.argv.index('-t') + 1])
   if '-q' in sys.argv:
     max_queries = int(sys.argv[sys.argv.index('-q') + 1])
-pattern = '<cite>[\w://]*?([\w\.-]+?)<b>' + domain + '</b>'
 subs = []
 new = True
+page = 0
 
 # --begin--
 print '[-] domain:', domain
@@ -92,8 +94,8 @@ while new == True:
   query = ''
   # build query based on results of previous results
   for sub in subs:
-    query += '+-site:' + sub + domain
-  new_url = url + query
+    query += '+-site:%s.%s' % (sub, domain)
+  new_url = '%sstart=%s&%s%s' % (base_url, str(page*10), base_query, query)
   new_url = new_url[:2074]
   # build web request and submit query
   request = urllib2.Request(new_url)
@@ -124,14 +126,14 @@ while new == True:
           del proxies[num]
   else:
     opener = urllib2.build_opener(urllib2.HTTPHandler(), urllib2.HTTPSHandler())
-    if verbose: print '[+] sending query...'
+    if verbose: print '[+] sending query: %s...' % (new_url)
     # send query to search engine
     try:
       result = opener.open(request).read()
     except Exception as inst:
-        print '[!] {0}'.format(inst)
-        if str(inst).index('503') != -1: print '[!] possible shun: use --proxy or find something else to do for 24 hours :)'
-        sys.exit(2)
+      print '[!] {0}'.format(inst)
+      if str(inst).index('503') != -1: print '[!] possible shun: use --proxy or find something else to do for 24 hours :)'
+      sys.exit(2)
   # iterate query count
   query_cnt += 1
   sites = re.findall(pattern, result)
@@ -144,14 +146,19 @@ while new == True:
       if verbose: print '[!] subdomain found:', site
       subs.append(site)
       new = True
-  # exit if all subdomains have been found
-  if new == False:
-    print '[-] all available subdomains found...'
-    break
   # exit if maximum number of queries has been made
   if query_cnt == max_queries:
     print '[-] maximum number of queries made...'
     break
+  # start going through all pages if querysize is maxed out
+  if new == False:
+    # exit if all subdomains have been found
+    if not 'Next page' in result:
+      print '[-] all available subdomains found...'
+      break
+    else:
+      page += 1
+      new = True
   # sleep script to avoid lock-out
   if verbose: print '[+] sleeping to avoid lock-out...'
   time.sleep(secs)
@@ -162,11 +169,11 @@ if verbose:
   # rebuild and display final query if in verbose mode
   final_query = ''
   for sub in subs:
-    final_query += '+-site:' + sub + domain
-  print '[+] final query string:', url + final_query
+    final_query += '+-site:%s.%s' % (sub, domain)
+  print '[+] final query string: %sstart=%s&%s%s' % (base_url, str(page*10), base_query, query)
 print ' '
 print '[subdomains] -', str(len(subs))
-for sub in subs: print sub + domain
+for sub in subs: print '%s.%s' % (sub, domain)
 
 # conduct dns lookup if argument is present
 if lookup == True:
