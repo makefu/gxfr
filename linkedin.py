@@ -32,7 +32,7 @@ Options:
   -g [#]        - The number of google pages to parse looking for employees of the Company (default is indef)
   -s            - Additional search words
   -v            - Be verbose
-  -o [filename] - Output to easily parsable file
+  -o [filename] - Output or append to easily parsable file
 Example:
   ./linkedin.py 'Company Name' -g 5 -o report
                  - Querying to a google depth of 5, searching for employees of company, and outputing results to a file.
@@ -115,7 +115,7 @@ while True:
     index += 1
     if not 'Next page' in result:
       print ''
-      print '[*] End of Google search results reached.'
+      print '[*] End of search results reached.'
       break
   except KeyboardInterrupt:
     print 'Exiting...'
