@@ -7,7 +7,7 @@
 # Code is based heavily on the core functionality of userpass.py by Mark Baggett.
 # http://pauldotcom.com/userpass.py
 
-import re, urllib, urllib2 
+import re, urllib, urllib2, time
 
 def search(q, start = 0):
   try:
@@ -104,7 +104,7 @@ while True:
                 records.append(record)
                 print record
                 if tofile:
-                  file.write(fname + '|' + lname + '|' + fname[:1] + lname + '|' + job.lstrip(' ') + '\n')
+                  file.write(fname + '|' + lname + '|' + job.lstrip(' ') + '\n')
                   file.flush()
               else:
                 if verbose: print '[Duplicate found] %s %s' % (fname, lname)
@@ -117,6 +117,7 @@ while True:
       print ''
       print '[*] End of search results reached.'
       break
+    time.sleep(15)
   except KeyboardInterrupt:
     print 'Exiting...'
     if tofile: file.close()
