@@ -1,7 +1,7 @@
 #!/usr/bin/python -tt
 
 # add counter for total, success, error requests
-# add more detail for errors for debugging
+# add more detail for errors (exception info) for debugging
 
 import re, urllib, urllib2, sys, time, os
 
