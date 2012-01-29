@@ -1,15 +1,24 @@
 #!/usr/bin/python -tt
 
-import socket, time, os
+import sys, socket, time, os
 from threading import Thread
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 
 ### set these vars ###
 ip = '192.168.1.3'                                    # ip of listening interface
-request_log = '/home/lanmaster/tools/dns_fwd/log'     # full path to desired log file
-bl_path = '/home/lanmaster/tools/dns_fwd/blacklists/' # full path to directory containing blacklists
+logfile = '/root/tools/dns_fwd/log'                   # full path to log file. over-ride with -l switch
+bl_path = '/root/tools/dns_fwd/blacklists/'           # full path to directory containing blacklists
 nameserver = '208.67.222.222'                         # ip of upstream dns server
 ######################
+
+toLog = False
+for i in range(1, len(sys.argv), 1):
+  if sys.argv[i] == '-l':
+    toLog = True
+    print 'Logging to file: %s.' % (logfile)
+    if len(sys.argv)-1 > i:
+      if not sys.argv[i+1].startswith('-'):
+        logfile = sys.argv[i+1]
 
 class customHTTPServer(BaseHTTPRequestHandler):
 
@@ -55,11 +64,12 @@ class DNSQuery:
     fwds.close()
     return response
 
-def log(filename, action, desc):
-  stamp = time.strftime('%m:%d:%y %H:%M:%S', time.localtime())
-  log_file = open(filename, 'a')
-  log_file.write('%s (%s) %s\n' % (stamp, action, desc))
-  log_file.close()
+def log(action, desc):
+  if toLog:
+    stamp = time.strftime('%m:%d:%y %H:%M:%S', time.localtime())
+    log_file = open(logfile, 'a')
+    log_file.write('%s (%s) %s\n' % (stamp, action, desc))
+    log_file.close()
 
 def serve():
   try:
@@ -103,15 +113,15 @@ try:
       for item in blacklists[blacklist]:
         if domain.find(item) != -1:
           udps.sendto(p.response(ip), reqaddr)
-          log(request_log, 'DENY', '%s -> %s [%s]' % (reqaddr[0], domain, blacklist))
+          log('DENY', '%s -> %s [%s]' % (reqaddr[0], domain, blacklist))
           blocked = True
           break
     if not blocked:
       try:
         udps.sendto(p.forward(nameserver), reqaddr)
-        log(request_log, 'ALLOW', '%s -> %s' % (reqaddr[0], domain))
+        log('ALLOW', '%s -> %s' % (reqaddr[0], domain))
       except socket.timeout:
-        log(request_log, 'ERROR', '%s -> %s [fwd_socket_timeout]' % (reqaddr[0], domain))
+        log('ERROR', '%s -> %s [fwd_socket_timeout]' % (reqaddr[0], domain))
         continue
 except KeyboardInterrupt:
   print 'Exiting...'
