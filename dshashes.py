@@ -106,7 +106,6 @@ for recordid in dsMapLineIdByRecordId:
             continue
         if name != "" and user.Name != name:
             continue
-        #import pdb; pdb.set_trace()
         if excl_dsbl:
             user_disabled = False
             for uac in user.getUserAccountControl():
