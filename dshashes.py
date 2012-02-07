@@ -39,6 +39,8 @@ def usage():
     print "          Extract password hashes"
     print "    --passwordhistory <system hive>"
     print "          Extract password history"
+    print "    --exclude-disabled"
+    print "          Exclude disabled accounts from output"
 
 if len(sys.argv) < 3:
     usage()
@@ -50,6 +52,7 @@ syshive = ""
 pwdump = False
 pwhdump = False
 optid = 0
+excl_dsbl = False
 print "Running with options:"
 for opt in sys.argv:
     if opt == "--rid":
@@ -78,6 +81,8 @@ for opt in sys.argv:
         syshive = sys.argv[optid + 1]
         pwhdump = True
         print "\tExtracting password history"
+    if '--exclude-disabled' in sys.argv:
+        excl_dsbl = True
     optid += 1 
 
 db = dsInitDatabase(sys.argv[1])
@@ -101,6 +106,12 @@ for recordid in dsMapLineIdByRecordId:
             continue
         if name != "" and user.Name != name:
             continue
+        #import pdb; pdb.set_trace()
+        if excl_dsbl:
+            user_disabled = False
+            for uac in user.getUserAccountControl():
+                if uac == 'Disabled': user_disabled = True
+            if user_disabled: continue
 
         if pwdump == True:
             nthash = ''
