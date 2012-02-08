@@ -66,7 +66,7 @@ if tofile:
     file = open(filename, 'a')
   else:
     file = open(filename, 'w')
-query = 'site:linkedin.com/in "' + company+ '" ' + addsearch
+query = 'site:linkedin.com "%s" %s' % (company, addsearch)
 names_urls = []
 records = []
 index = 0
@@ -81,7 +81,8 @@ while True:
       if index >= int(googledepth):
         break
     result = search(query, index*10)
-    names_urls = re.findall(";u=http://\www\.linkedin\.com/in/[a-zA-Z0-9/-]+.>[ |a-zA-Z0-9,.-]+", result)
+    names_urls = re.findall(";u=http://\www\.linkedin\.com/[a-zA-Z0-9/-]+.>[ |a-zA-Z0-9,.-]+", result)
+    #names_urls = re.findall(";u=http://\www\.linkedin\.com/in/[a-zA-Z0-9/-]+.>[ |a-zA-Z0-9,.-]+", result)
     try:
       for token in names_urls:
         token = token.lower()
