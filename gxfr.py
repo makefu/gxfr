@@ -40,7 +40,6 @@ domain = sys.argv[1]
 sys.argv = sys.argv[2:]
 lookup = False
 encrypt = True
-# new stuff
 base_url = 'https://www.google.com/m/search?'
 base_query = 'site:' + domain
 pattern = '>([\.\w-]*)\.%s.+?<' % (domain)
