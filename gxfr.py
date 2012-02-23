@@ -24,7 +24,7 @@ def help():
   $ ./gxfr.py foxnews.com --dns-lookup -v
   $ ./gxfr.py foxnews.com --dns-lookup --proxy open_proxies.txt --timeout 10
   $ ./gxfr.py foxnews.com --dns-lookup -t 5 -q 5 -v --proxy 127.0.0.1:8080
-  $ curl http://rmccurdy.com/scripts/proxy/good.txt | ./gxfrpy foxnews.com -v --proxy -
+  $ curl http://rmccurdy.com/scripts/proxy/good.txt | ./gxfr.py website.com -v -t 3 --proxy -
   """
   sys.exit(2)
 
@@ -108,14 +108,14 @@ while new == True:
           # select a proxy from list at random
           num = random.randint(0,len(proxies)-1)
           host = proxies[num]
-          opener = urllib2.build_opener(urllib2.ProxyHandler({proto: host}))
+          opener = urllib2.build_opener(urllib2.ProxyHandler({'http': host}))
           if verbose: print '[+] sending query to', host
           # send query to proxy server
           result = opener.open(request).read()
           # exit while loop if successful
           break
         except Exception as inst:
-          print '[!] {0} failed: {1}'.format(host, inst)
+          print '[!] %s failed: %s' % (host, inst)
           if len(proxies) == 1:
             # exit of no proxy servers from list are valid
             print '[-] valid proxy server not found'
@@ -184,8 +184,8 @@ if lookup == True:
   dict = {}
   # create a dictionary where the subdomain is the key and a list of all associated ips is the value
   for sub in subs:
-    sub = sub + domain
-    if verbose: print '[+] querying dns for', sub + '...'
+    sub = '%s.%s' % (sub, domain)
+    if verbose: print '[+] querying dns for %s...' % (sub)
     # dns query and dictionary assignment
     try:
       dict[sub] = list(set([item[4][0] for item in socket.getaddrinfo(sub, 80)]))
