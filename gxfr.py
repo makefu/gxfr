@@ -4,7 +4,7 @@
 # By Tim Tomes (LaNMaSteR53)
 # Available for download at http://LaNMaSteR53.com or http://code.google.com/p/gxfr/
 
-import sys, os.path, urllib2, re, time, socket, random, socket
+import sys, os.path, urllib, urllib2, re, time, socket, random, socket
 
 def help():
   print """  Syntax: ./gxfr.py domain [options]
@@ -42,12 +42,8 @@ lookup = False
 encrypt = True
 # new stuff
 base_url = 'https://www.google.com/m/search?'
-base_query = 'q=site%3A' + domain
+base_query = 'site:' + domain
 pattern = '>([\.\w-]*)\.%s.+?<' % (domain)
-# old stuff
-#base_url = 'https://www.google.com/search?'
-#base_query = 'q=inurl%3A' + domain + '+site%3A' + domain
-#pattern = '<cite>[\w://]*?([\w\.-]+?)<b>' + domain + '</b>'
 proxy = False
 user_agent = 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Trident/4.0; FDM; .NET CLR 2.0.50727; InfoPath.2; .NET CLR 1.1.4322)'
 verbose = False
@@ -91,77 +87,84 @@ print '[-] user-agent:', user_agent
 print '[-] querying search engine, please wait...'
 # loop until no new subdomains are found
 while new == True:
-  query = ''
-  # build query based on results of previous results
-  for sub in subs:
-    query += '+-site:%s.%s' % (sub, domain)
-  new_url = '%sstart=%s&%s%s' % (base_url, str(page*10), base_query, query)
-  new_url = new_url[:2074]
-  # build web request and submit query
-  request = urllib2.Request(new_url)
-  # spoof user-agent string
-  request.add_header('User-Agent', user_agent)
-  # if proxy is enabled, use the correct handler
-  if proxy == True:
-    # validate proxies at runtime
-    while True:
-      try:
-        # select a proxy from list at random
-        num = random.randint(0,len(proxies)-1)
-        host = proxies[num]
-        opener = urllib2.build_opener(urllib2.ProxyHandler({proto: host}))
-        if verbose: print '[+] sending query to', host
-        # send query to proxy server
-        result = opener.open(request).read()
-        # exit while loop if successful
-        break
-      except Exception as inst:
-        print '[!] {0} failed: {1}'.format(host, inst)
-        if len(proxies) == 1:
-          # exit of no proxy servers from list are valid
-          print '[-] valid proxy server not found'
-          sys.exit(2)
-        else:
-          # remove host from list of proxies and try again
-          del proxies[num]
-  else:
-    opener = urllib2.build_opener(urllib2.HTTPHandler(), urllib2.HTTPSHandler())
-    if verbose: print '[+] sending query: %s...' % (new_url)
-    # send query to search engine
-    try:
-      result = opener.open(request).read()
-    except Exception as inst:
-      print '[!] {0}'.format(inst)
-      if str(inst).index('503') != -1: print '[!] possible shun: use --proxy or find something else to do for 24 hours :)'
-      sys.exit(2)
-  # iterate query count
-  query_cnt += 1
-  sites = re.findall(pattern, result)
-  # create a uniq list
-  sites = list(set(sites))
-  new = False
-  # add subdomain to list if not already exists
-  for site in sites:
-    if site not in subs:
-      if verbose: print '[!] subdomain found:', site
-      subs.append(site)
-      new = True
-  # exit if maximum number of queries has been made
-  if query_cnt == max_queries:
-    print '[-] maximum number of queries made...'
-    break
-  # start going through all pages if querysize is maxed out
-  if new == False:
-    # exit if all subdomains have been found
-    if not 'Next page' in result:
-      print '[-] all available subdomains found...'
-      break
+  try:
+    query = ''
+    # build query based on results of previous results
+    for sub in subs:
+      query += ' -site:%s.%s' % (sub, domain)
+    new_query = base_query + query
+    # note: character limit is passive in mobile, but seems to be ~794
+    # note: character limit shortened from 2074 to 852 for desktop queries
+    new_url = '%sq=%s&start=%s' % (base_url, urllib.quote_plus(new_query), str(page*10))
+    if verbose: print '[+] using query: %s...' % (new_url)
+    # build web request and submit query
+    request = urllib2.Request(new_url)
+    # spoof user-agent string
+    request.add_header('User-Agent', user_agent)
+    # if proxy is enabled, use the correct handler
+    if proxy == True:
+      # validate proxies at runtime
+      while True:
+        try:
+          # select a proxy from list at random
+          num = random.randint(0,len(proxies)-1)
+          host = proxies[num]
+          opener = urllib2.build_opener(urllib2.ProxyHandler({proto: host}))
+          if verbose: print '[+] sending query to', host
+          # send query to proxy server
+          result = opener.open(request).read()
+          # exit while loop if successful
+          break
+        except Exception as inst:
+          print '[!] {0} failed: {1}'.format(host, inst)
+          if len(proxies) == 1:
+            # exit of no proxy servers from list are valid
+            print '[-] valid proxy server not found'
+            sys.exit(2)
+          else:
+            # remove host from list of proxies and try again
+            del proxies[num]
     else:
-      page += 1
-      new = True
-  # sleep script to avoid lock-out
-  if verbose: print '[+] sleeping to avoid lock-out...'
-  time.sleep(secs)
+      opener = urllib2.build_opener(urllib2.HTTPHandler(), urllib2.HTTPSHandler())
+      # send query to search engine
+      try:
+        result = opener.open(request).read()
+      except Exception as inst:
+        print '[!] {0}'.format(inst)
+        if str(inst).index('503') != -1: print '[!] possible shun: use --proxy or find something else to do for 24 hours :)'
+        sys.exit(2)
+    # iterate query count
+    query_cnt += 1
+    sites = re.findall(pattern, result)
+    # create a uniq list
+    sites = list(set(sites))
+    new = False
+    # add subdomain to list if not already exists
+    for site in sites:
+      if site not in subs:
+        if verbose: print '[!] subdomain found:', site
+        subs.append(site)
+        new = True
+    # exit if maximum number of queries has been made
+    if query_cnt == max_queries:
+      print '[-] maximum number of queries made...'
+      break
+    # start going through all pages if querysize is maxed out
+    if new == False:
+      # exit if all subdomains have been found
+      if not 'Next page' in result:
+        print '[-] all available subdomains found...'
+        break
+      else:
+        page += 1
+        new = True
+        if verbose: print '[+] no new subdomains found on page. jumping to result %d.' % (page*10)
+    # sleep script to avoid lock-out
+    if verbose: print '[+] sleeping to avoid lock-out...'
+    time.sleep(secs)
+  except KeyboardInterrupt:
+    # catch keyboard interrupt and gracefull complete script
+    break
 
 # print list of subdomains
 print '[-] successful queries made:', str(query_cnt)
