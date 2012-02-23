@@ -6,6 +6,14 @@
 
 import sys, os.path, urllib, urllib2, re, time, socket, random, socket
 
+print ''
+print '       _/_/_/  _/      _/  _/_/_/_/  _/_/_/    '
+print '    _/          _/  _/    _/        _/    _/   '
+print '   _/  _/_/      _/      _/_/_/    _/_/_/      '
+print '  _/    _/    _/  _/    _/        _/    _/     '
+print '   _/_/_/  _/      _/  _/        _/    _/      '
+print ''
+
 def help():
   print """  Syntax: ./gxfr.py domain [options]
   
