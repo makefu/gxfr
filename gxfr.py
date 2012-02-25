@@ -48,7 +48,8 @@ domain = sys.argv[1]
 sys.argv = sys.argv[2:]
 lookup = False
 encrypt = True
-base_url = 'https://www.google.com/m/search?'
+base_url = 'https://www.google.com'
+base_uri = '/m/search?'
 base_query = 'site:' + domain
 pattern = '>([\.\w-]*)\.%s.+?<' % (domain)
 proxy = False
@@ -99,13 +100,21 @@ while new == True:
     # build query based on results of previous results
     for sub in subs:
       query += ' -site:%s.%s' % (sub, domain)
-    new_query = base_query + query
-    # note: character limit is passive in mobile, but seems to be ~794
-    # note: character limit shortened from 2074 to 852 for desktop queries
-    new_url = '%sq=%s&start=%s' % (base_url, urllib.quote_plus(new_query), str(page*10))
-    if verbose: print '[+] using query: %s...' % (new_url)
+    full_query = base_query + query
+    start_param = '&start=%s' % (str(page*10))
+    query_param = 'q=%s' % (urllib.quote_plus(full_query))
+    if len(base_uri) + len(query_param) + len(start_param) < 2048:
+      last_query_param = query_param
+      params = query_param + start_param
+    else:
+      params = last_query_param[:2047-len(start_param)-len(base_uri)] + start_param
+    full_url = base_url + base_uri + params
+    # note: query character limit is passive in mobile, but seems to be ~794
+    # note: query character limit seems to be 852 for desktop queries
+    # note: typical URI max length is 2048 (starts after top level domain)
+    if verbose: print '[+] using query: %s...' % (full_url)
     # build web request and submit query
-    request = urllib2.Request(new_url)
+    request = urllib2.Request(full_url)
     # spoof user-agent string
     request.add_header('User-Agent', user_agent)
     # if proxy is enabled, use the correct handler
@@ -140,6 +149,8 @@ while new == True:
         print '[!] {0}'.format(inst)
         if str(inst).index('503') != -1: print '[!] possible shun: use --proxy or find something else to do for 24 hours :)'
         sys.exit(2)
+    if not verbose: sys.stdout.write('.'); sys.stdout.flush()
+    #if not verbose: sys.stdout.write('\n'); sys.stdout.flush()
     # iterate query count
     query_cnt += 1
     sites = re.findall(pattern, result)
@@ -160,6 +171,7 @@ while new == True:
     if new == False:
       # exit if all subdomains have been found
       if not 'Next page' in result:
+        #import pdb; pdb.set_trace() # curl to stdin breaks pdb
         print '[-] all available subdomains found...'
         break
       else:
@@ -177,10 +189,11 @@ while new == True:
 print '[-] successful queries made:', str(query_cnt)
 if verbose:
   # rebuild and display final query if in verbose mode
-  final_query = ''
-  for sub in subs:
-    final_query += '+-site:%s.%s' % (sub, domain)
-  print '[+] final query string: %sstart=%s&%s%s' % (base_url, str(page*10), base_query, query)
+  #final_query = ''
+  #for sub in subs:
+  #  final_query += '+-site:%s.%s' % (sub, domain)
+  #print '[+] final query string: %sstart=%s&%s%s' % (base_url, str(page*10), base_query, query)
+  print '[+] final query string: %s' % (full_url)
 print ' '
 print '[subdomains] -', str(len(subs))
 for sub in subs: print '%s.%s' % (sub, domain)
