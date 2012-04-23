@@ -6,13 +6,6 @@
 
 import sys, os.path, urllib, urllib2, re, time, socket, random, socket
 
-print ''
-print '       _/_/_/  _/      _/  _/_/_/_/  _/_/_/    '
-print '    _/          _/  _/    _/        _/    _/   '
-print '   _/  _/_/      _/      _/_/_/    _/_/_/      '
-print '  _/    _/    _/  _/    _/        _/    _/     '
-print '   _/_/_/  _/      _/  _/        _/    _/      '
-print ''
 
 def help():
   print """  Syntax: ./gxfr.py domain [options]
@@ -27,6 +20,7 @@ def help():
                              - replace filename with '-' (dash) to accept stdin
   --user-agent ['string']  set custom user-agent string
   --timeout [seconds]      set socket timeout (default=system default)
+  --csv [file]
   
   Examples: 
   $ ./gxfr.py foxnews.com --dns-lookup -v
@@ -44,6 +38,7 @@ if '-h' in sys.argv or '--help' in sys.argv:
 
 # declare vars and process arguments
 query_cnt = 0
+csvname = False
 domain = sys.argv[1]
 sys.argv = sys.argv[2:]
 lookup = False
@@ -56,11 +51,13 @@ proxy = False
 user_agent = 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Trident/4.0; FDM; .NET CLR 2.0.50727; InfoPath.2; .NET CLR 1.1.4322)'
 verbose = False
 secs = 15
-max_queries = 0 # infinite
+max_queries = 10 # default = 10 queries
 # process command line arguments
 if len(sys.argv) > 0:
   if '--dns-lookup' in sys.argv:
     lookup = True
+  if '--csv' in sys.argv:
+    csvname = sys.argv[sys.argv.index('--csv') + 1]
   if '--proxy' in sys.argv:
     proxy = True
     filename = sys.argv[sys.argv.index('--proxy') + 1]
@@ -196,7 +193,23 @@ if verbose:
   print '[+] final query string: %s' % (full_url)
 print ' '
 print '[subdomains] -', str(len(subs))
-for sub in subs: print '%s.%s' % (sub, domain)
+csvwriter = False
+try:
+  if csvname:
+    import csv
+    csvwriter = csv.writer(open(csvname,'wb'))
+except:
+  print "[!] Cannot open CSV"
+for sub in subs: 
+  dom = '%s.%s' % (sub, domain )
+  hostname,aliases,ips = socket.gethostbyname_ex(dom)
+  #print hostname,aliases,ip
+  print dom,",".join(ips) 
+  try:
+    line = [dom] + ips
+    csvwriter.writerow([dom] + ips)
+  except: pass
+
 
 # conduct dns lookup if argument is present
 if lookup == True:
